@@ -22,8 +22,19 @@ async def get_task_status(
         task_status = await task_manager.get_task_status(task_id)
 
         # if the result contains any coroutines we need to await the
-        if task_status.get("status") == "completed" and asyncio.iscoroutine(task_status.get("result")):
-            task_status["result"] = await task_status["result"]
+        if task_status.get("status") == "completed" and task_status.get("result") is not None: 
+            result = task_status.get("result")
+            if asyncio.iscoroutine(result):
+                try:
+                    task_status["result"] = await result
+                except RuntimeError as e:
+                    if "cannot reuse already await coroutine" in str(e):
+                        pass
+                    else:
+                        raise
+                except Exception as e:
+                    task_status["result"] = {"error": f"Error in task execution: {str(e)}"}
+                    task_status["status"] = "failed"
 
         return task_status
     except KeyError:

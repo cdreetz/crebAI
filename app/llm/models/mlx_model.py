@@ -156,9 +156,9 @@ class MLXModel(BaseLLMModel):
                 # Set generation parameters
                 gen_params = {
                     "max_tokens": params.get("max_tokens", 512),
-                    "temp": params.get("temperature", 0.7),
-                    "top_p": params.get("top_p", 0.9),
-                    "verbose": params.get("verbose", False)
+                    #"temp": params.get("temperature", 0.7),
+                    #"top_p": params.get("top_p", 0.9),
+                    #"verbose": params.get("verbose", False)
                 }
                 
                 # Generate response
