@@ -46,6 +46,14 @@ class ChatCompletionRequest(BaseModel):
             }
         }
 
+class ChatCompletionChunk(BaseModel):
+    """Single chunk of a streaming chat completion response"""
+    id: str
+    object: str = "chat.completion.chunk"
+    created: int
+    model: str
+    choices: List[Dict[str, Any]]
+
 
 class TaskListRequest(BaseModel):
     """Request model for listing tasks"""

@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, AsyncGenerator
 
 from app.core.logging import get_logger
 from app.llm.models.base import BaseLLMModel
@@ -191,6 +191,315 @@ class MLXModel(BaseLLMModel):
         
         logger.info(f"Generating chat completion with MLX model {self._model_name}")
         return await asyncio.to_thread(_chat)
+
+    #async def chat_stream(self, messages: List[Dict], params: Optional[Dict] = None) -> AsyncGenerator[Dict, None]:
+    #"""
+    #Stream a chat completion response using the MLX model.
+    #
+    #Args:
+    #    messages: List of chat messages in the format [{"role": "...", "content": "..."}]
+    #    params: Generation parameters
+    #    
+    #Yields:
+    #    Response chunks in streaming format
+    #"""
+    #if not self._loaded:
+    #    await self.load()
+    #
+    #params = params or {}
+    #
+    #async def _chat_stream():
+    #    try:
+    #        # Import necessary functions inside the thread
+    #        from mlx_lm import generate
+    #        
+    #        # Apply chat template if available
+    #        if hasattr(self._tokenizer, "apply_chat_template") and self._tokenizer.chat_template is not None:
+    #            processed_prompt = self._tokenizer.apply_chat_template(
+    #                messages, tokenize=False, add_generation_prompt=True
+    #            )
+    #        else:
+    #            # Fallback for models without chat template
+    #            processed_prompt = self._format_messages(messages)
+    #        
+    #        # Set generation parameters
+    #        gen_params = {
+    #            "max_tokens": params.get("max_tokens", 512),
+    #            "stream": True  # Ensure streaming is enabled
+    #        }
+    #        
+    #        # Create a unique ID for this streaming session
+    #        stream_id = f"chatcmpl-{int(time.time())}"
+    #        
+    #        # Generate initial response with empty content
+    #        initial_chunk = {
+    #            "id": stream_id,
+    #            "object": "chat.completion.chunk",
+    #            "created": int(time.time()),
+    #            "model": self._model_name,
+    #            "choices": [
+    #                {
+    #                    "index": 0,
+    #                    "delta": {"role": "assistant"},
+    #                    "finish_reason": None
+    #                }
+    #            ]
+    #        }
+    #        
+    #        # Use a Queue to communicate between threads
+    #        queue = asyncio.Queue()
+    #        
+    #        # Put the initial chunk in the queue
+    #        await queue.put(initial_chunk)
+    #        
+    #        def _token_callback(token):
+    #            # This function is called for each token generated
+    #            chunk = {
+    #                "id": stream_id,
+    #                "object": "chat.completion.chunk",
+    #                "created": int(time.time()),
+    #                "model": self._model_name,
+    #                "choices": [
+    #                    {
+    #                        "index": 0,
+    #                        "delta": {"content": token},
+    #                        "finish_reason": None
+    #                    }
+    #                ]
+    ##            }
+    #            
+    #            # Use asyncio.run_coroutine_threadsafe to add chunk to queue from callback
+    #            asyncio.run_coroutine_threadsafe(
+    #                queue.put(chunk), 
+    #                asyncio.get_event_loop()
+    #            )
+    #        
+    #        def _generate_with_callback():
+    #            # Modified generate function that calls the callback for each token
+    #            # Initialize tokenizer and model
+    #            tokenizer = self._tokenizer
+    #            model = self._model
+    #            
+    #            # Tokenize the prompt
+    #            tokens = tokenizer.encode(processed_prompt)
+    #            
+    #            # Generate tokens one by one
+    #            for i in range(gen_params["max_tokens"]):
+    #                next_token = model.generate(tokens, temp=params.get("temperature", 0.7))
+    #                if next_token == tokenizer.eos_token_id:
+    #                    break
+    #                
+    #                # Decode the single token and call the callback
+    #                token_text = tokenizer.decode([next_token])
+    #                _token_callback(token_text)
+    #                
+    #                # Append token to sequence for next iteration
+    #                tokens.append(next_token)
+    #            
+    #            # Signal completion
+    #            final_chunk = {
+    #                "id": stream_id,
+    #                "object": "chat.completion.chunk",
+    #                "created": int(time.time()),
+    #                "model": self._model_name,
+    #                "choices": [
+    #                    {
+    #                        "index": 0,
+    #                        "delta": {},
+    #                        "finish_reason": "stop"
+    #                    }
+    #                ]
+    #            }
+    #            
+    #            asyncio.run_coroutine_threadsafe(
+    #                queue.put(final_chunk), 
+    #                asyncio.get_event_loop()
+    #            )
+    #            
+    #            # Mark queue as done
+    #            asyncio.run_coroutine_threadsafe(
+    #                queue.put(None),  # None signals end of stream
+    #                asyncio.get_event_loop()
+    #            )
+    #        
+    #        # Start generation in a separate thread
+    #        loop = asyncio.get_event_loop()
+    #        await loop.run_in_executor(None, _generate_with_callback)
+    #        
+    #        # Yield chunks from the queue
+    #        while True:
+    #            chunk = await queue.get()
+    #            if chunk is None:  # End of stream
+    #                break
+    #            yield chunk
+    #            
+    #    except Exception as e:
+    #        logger.error(f"Error in chat streaming with MLX: {str(e)}")
+    #        # Yield an error message
+    #        error_chunk = {
+    #            "object": "chat.completion.chunk",
+    #            "error": {
+    #                "message": str(e),
+    #                "type": "server_error"
+    #            }
+    #        }
+    #        yield error_chunk
+    #
+    #logger.info(f"Streaming chat completion with MLX model {self._model_name}")
+    #async for chunk in _chat_stream():
+    #    yield chunk
+
+
+
+    async def chat_stream(self, messages: List[Dict], params: Optional[Dict] = None) -> AsyncGenerator[Dict, None]:
+        """
+        Stream a chat completion response using the MLX model.
+        
+        Args:
+            messages: List of chat messages in the format [{"role": "...", "content": "..."}]
+            params: Generation parameters
+            
+        Yields:
+            Response chunks in streaming format
+        """
+        if not self._loaded:
+            await self.load()
+        
+        params = params or {}
+        
+        # Create a unique ID for this streaming session
+        stream_id = f"chatcmpl-{int(time.time())}"
+        
+        # First, yield the initial role chunk
+        yield {
+            "id": stream_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": self._model_name,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant"},
+                    "finish_reason": None
+                }
+            ]
+        }
+        
+        try:
+            # Process the messages into a prompt
+            if hasattr(self._tokenizer, "apply_chat_template") and self._tokenizer.chat_template is not None:
+                processed_prompt = self._tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+            else:
+                processed_prompt = self._format_messages(messages)
+            
+            # Encode the prompt
+            encoded_prompt = self._tokenizer.encode(processed_prompt)
+            
+            # Set generation parameters
+            max_tokens = params.get("max_tokens", 512)
+            temperature = params.get("temperature", 0.7)
+            top_p = params.get("top_p", 0.9)
+            
+            # Define a function that uses mlx_lm.stream_generate to generate and stream tokens
+            def generate_streaming():
+                # Import stream_generate inside the thread to avoid loading MLX modules when not needed
+                from mlx_lm import stream_generate
+                
+                
+                # Use the stream_generate function from mlx_lm
+                generator = stream_generate(
+                    model=self._model,
+                    tokenizer=self._tokenizer,
+                    prompt=encoded_prompt,
+                    max_tokens=max_tokens,
+                )
+                
+                return generator
+            
+            # Run the generation in a separate thread
+            loop = asyncio.get_event_loop()
+            generator = await loop.run_in_executor(None, generate_streaming)
+            
+            # Process and yield chunks as they are generated
+            for response in generator:
+                if response.text:
+                    yield {
+                        "id": stream_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": self._model_name,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": response.text},
+                                "finish_reason": None
+                            }
+                        ]
+                    }
+            
+            # Yield the final chunk to signal completion
+            yield {
+                "id": stream_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": self._model_name,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "stop"
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in chat streaming with MLX: {str(e)}")
+            yield {
+                "object": "chat.completion.chunk",
+                "error": {
+                    "message": str(e),
+                    "type": "server_error"
+                }
+            }
+
+
+
+
+    def _make_sampler(temp=0.7, top_p=0.9, min_p=0.0, min_tokens_to_keep=1):
+        """
+        Create a sampler function for token generation.
+        
+        Args:
+            temp: Temperature for sampling
+            top_p: Top-p (nucleus) sampling parameter
+            min_p: Min-p sampling parameter
+            min_tokens_to_keep: Minimum tokens to keep for min-p sampling
+            
+        Returns:
+            A sampler function that takes logits and returns token indices
+        """
+        def sample(logits):
+            import mlx.core as mx
+            from mlx.utils import sample_logits
+            
+            if temp == 0:
+                # Greedy sampling
+                return mx.argmax(logits, axis=-1)
+            else:
+                # Use sample_logits for non-greedy sampling
+                return sample_logits(
+                    logits, 
+                    temp=temp, 
+                    top_p=top_p,
+                    min_p=min_p,
+                    min_tokens_to_keep=min_tokens_to_keep
+                )
+        
+        return sample
+
+
     
     def _format_messages(self, messages: List[Dict]) -> str:
         """

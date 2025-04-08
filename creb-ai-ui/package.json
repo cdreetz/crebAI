@@ -1,0 +1,51 @@
+{
+  "name": "ai-chat-desktop",
+  "version": "1.0.0",
+  "description": "Desktop AI Chat Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "package": "electron-builder build --mac --win --linux",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.22.5",
+    "@babel/preset-env": "^7.22.5",
+    "@babel/preset-react": "^7.22.5",
+    "babel-loader": "^9.1.2",
+    "css-loader": "^7.1.2",
+    "electron": "^25.2.0",
+    "electron-builder": "^24.4.0",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "axios": "^1.8.1",
+    "path": "^0.12.7",
+    "prismjs": "^1.29.0",
+    "react": "^18.2.0",
+    "react-copy-to-clipboard": "^5.1.0",
+    "react-dom": "^18.2.0"
+  },
+  "build": {
+    "appId": "com.yourname.aichat",
+    "productName": "AI Chat",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+[] observability
+[] benchmark/tests scripts
+
+- metrics should be easy to track since we keep task_id objects, just plot how many tasks, how many complete/fail
+- then can use this to show the improvements from different optimization strategies, load balancing

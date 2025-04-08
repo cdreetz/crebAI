@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, AsyncGenerator
 import os
 
 from app.core.logging import get_logger
@@ -109,6 +109,42 @@ class LLMInterface:
         
         # Generate chat completion
         return await model.chat(messages, params)
+
+    @classmethod
+    async def stream_chat_completion(cls, messages: List[Dict], model_name: str, params: Optional[Dict] = None) -> AsyncGenerator[Dict, None]:
+        """
+        Stream a chat completion using the specified model.
+        
+        Args:
+            messages: List of chat messages
+            model_name: Name of the model to use
+            params: Generation parameters
+            
+        Returns:
+            Chat completion response
+        """
+        logger.info(f"Generating chat completion with model {model_name}")
+        params = params or {}
+
+        stream_params = {**params, "stream": True}
+        
+        # Get the model (load if necessary)
+        model = get_model(model_name)
+        if not model:
+            # Default to MLX model if not specified
+            model_path = params.get("model_path", model_name)
+            model = create_model("mlx", model_name, model_path)
+            register_model(model)
+            await model.load()
+        elif not model.is_loaded:
+            await model.load()
+
+        if not hasattr(model, "chat_stream"):
+            raise NotImplementedError(f"Model {model_name} does not support streaming")
+
+        async for chunk in model.chat_stream(messages, stream_params):
+            yield chunk
+        
     
     @classmethod
     def unload_model(cls, model_name: str) -> bool:

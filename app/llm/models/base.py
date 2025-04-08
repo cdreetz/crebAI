@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, AsyncGenerator
 import asyncio
 
 
@@ -18,6 +18,11 @@ class BaseLLMModel(ABC):
     
     @abstractmethod
     async def chat(self, messages: List[Dict], params: Optional[Dict] = None) -> Dict:
+        """Generate a response from a conversation"""
+        pass
+
+    @abstractmethod
+    async def chat_stream(self, messages: List[Dict], params: Optional[Dict] = None) -> AsyncGenerator[Dict, None]:
         """Generate a response from a conversation"""
         pass
     

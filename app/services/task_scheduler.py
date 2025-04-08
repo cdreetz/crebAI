@@ -1,10 +1,11 @@
 import asyncio
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, AsyncGenerator
 
 from app.core.logging import get_logger
 from app.core.config import get_settings
 from app.services.task_manager import TaskManager
 from app.llm.interface import LLMInterface
+from app.llm.models.factory import create_model, get_model, register_model
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -96,6 +97,53 @@ class TaskScheduler:
             "params": params or {}
         }
         return await self.task_manager.create_task("chat_completion", task_params)
+
+    async def stream_chat_completion(
+        self, messages: List[Dict], model_name: Optional[str] = None, params: Optional[Dict] = None
+    ) -> AsyncGenerator[Dict, None]:
+        """
+        Stream a chat completion response directly.
+
+        Args:
+            messages: List of chat messages
+            model_name: Name of a model to use
+            params: Generation parameters
+
+        Yields:
+            Chunks of the generated response
+        """
+        model_name = model_name or settings.DEFAULT_MODEL_NAME
+        params = params or {}
+
+        try:
+            # Get the model (load if necessary)
+            model = get_model(model_name)
+            if not model:
+                # Default to MLX model if not specified
+                model_path = params.get("model_path", model_name)
+                model = create_model("mlx", model_name, model_path)
+                register_model(model)
+                await model.load()
+            elif not model.is_loaded:
+                await model.load()
+
+            # Check if the model supports streaming
+            if not hasattr(model, "chat_stream"):
+                raise NotImplementedError(f"Model {model_name} does not support streaming")
+
+            # Call the model's chat_stream method
+            async for chunk in model.chat_stream(messages, params):
+                yield chunk
+        
+        except Exception as e:
+            logger.error(f"Error in streaming chat completion: {str(e)}")
+            yield {
+                "error": {
+                    "message": str(e),
+                    "type": "server_error"
+                }
+            }
+
     
     async def _process_text_generation(self, task_id: str, params: Dict) -> None:
         """Process a text generation task"""
